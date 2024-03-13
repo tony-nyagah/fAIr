@@ -22,6 +22,9 @@ class Dataset(models.Model):
         default=-1, choices=DatasetStatus.choices
     )  # 0 for active , 1 for archieved
 
+    def __str__(self):
+        return self.name
+
 
 class AOI(models.Model):
     class DownloadStatus(models.IntegerChoices):
@@ -36,6 +39,9 @@ class AOI(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return f"{self.dataset.name} - {self.geom}"
+
 
 class Label(models.Model):
     aoi = models.ForeignKey(AOI, to_field="id", on_delete=models.CASCADE)
@@ -43,6 +49,9 @@ class Label(models.Model):
     osm_id = models.BigIntegerField(null=True, blank=True)
     tags = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.aoi} - {self.geom}"
 
 
 class Model(models.Model):
@@ -57,7 +66,10 @@ class Model(models.Model):
     last_modified = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(OsmUser, to_field="osm_id", on_delete=models.CASCADE)
     published_training = models.PositiveIntegerField(null=True, blank=True)
-    status = models.IntegerField(default=-1, choices=ModelStatus.choices)  #
+    status = models.IntegerField(default=-1, choices=ModelStatus.choices)
+
+    def __str__(self):
+        return self.name
 
 
 class Training(models.Model):
@@ -87,6 +99,9 @@ class Training(models.Model):
     batch_size = models.PositiveIntegerField()
     freeze_layers = models.BooleanField(default=False)
 
+    def __str__(self):
+        return self.model.name
+
 
 class Feedback(models.Model):
     FEEDBACK_TYPE = (
@@ -106,6 +121,9 @@ class Feedback(models.Model):
     user = models.ForeignKey(OsmUser, to_field="osm_id", on_delete=models.CASCADE)
     source_imagery = models.URLField()
 
+    def __str__(self):
+        return f"{self.user} - {self.training} - {self.feedback_type}"
+
 
 class FeedbackAOI(models.Model):
     class DownloadStatus(models.IntegerChoices):
@@ -122,6 +140,9 @@ class FeedbackAOI(models.Model):
     source_imagery = models.URLField()
     user = models.ForeignKey(OsmUser, to_field="osm_id", on_delete=models.CASCADE)
 
+    def __str__(self):
+        return f"{self.user} - {self.training} - {self.source_imagery}"
+
 
 class FeedbackLabel(models.Model):
     osm_id = models.BigIntegerField(null=True, blank=True)
@@ -132,3 +153,6 @@ class FeedbackLabel(models.Model):
 
     geom = geomodels.PolygonField(srid=4326)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.osm_id} - {self.feedback_aoi} - {self.tags}"
