@@ -153,3 +153,6 @@ class FeedbackLabel(models.Model):
 
     geom = geomodels.PolygonField(srid=4326)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.osm_id} - {self.feedback_aoi} - {self.tags}"

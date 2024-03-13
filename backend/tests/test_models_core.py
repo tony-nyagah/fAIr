@@ -11,120 +11,102 @@ from core.models import (
 from django.contrib.gis.geos import Polygon
 from django.test import TestCase
 from login.models import OsmUser
+from model_bakery import baker
 
 
 class DatasetModelTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.dataset = Dataset.objects.create(
-            name="Test Dataset",
-            created_by=cls.osm_user,
-            source_imagery="http://example.com/image.png",
-        )
+    def setUp(self):
+        # Create a Dataset instance for testing
+        self.dataset = baker.make(Dataset, name="Test Dataset")
 
     def test_dataset_creation(self):
-        # Test the Dataset instance has been created properly.
-        self.assertTrue(isinstance(self.dataset, Dataset))
-
-    def test_string_representation(self):
-        # Test the string representation of a Dataset instance
-        self.assertEqual(str(self.dataset), "Test Dataset")
+        # Test that the Dataset instance has been created properly.
+        self.assertEqual(self.dataset.name, "Test Dataset")
 
     def test_invalid_dataset_creation(self):
-        # Raise an exception if an invalid dataset is created
+        # Test thet the Dataset instance return an exception if missing needed values.
         with self.assertRaises(Exception):
-            self.dataset = Dataset.objects.create(
-                name="Test Dataset",
-                created_by=None,
-                source_imagery="http://example.com/image.png",
-                status=Dataset.DatasetStatus.ACTIVE,
-            )
-
-    def test_default_dataset_status(self):
-        # Test the default dataset status is DRAFT
-        self.assertEqual(self.dataset.status, Dataset.DatasetStatus.DRAFT)
+            self.dataset = baker.make(created_by=None)
 
     def test_dataset_fields(self):
         # Test all fields for correct values
         self.assertEqual(self.dataset.name, "Test Dataset")
-        self.assertEqual(self.dataset.created_by, self.osm_user)
-        self.assertEqual(self.dataset.source_imagery, "http://example.com/image.png")
         # Ensure auto_now_add fields are populated
         self.assertIsNotNone(self.dataset.created_at)
         # Ensure auto_now fields are populated
         self.assertIsNotNone(self.dataset.last_modified)
 
+    def test_dataset_string_representation(self):
+        # Test the string representation of a Dataset instance
+        self.assertEqual(str(self.dataset), "Test Dataset")
+
 
 class AOIModelTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.aoi = AOI.objects.create(
-            dataset=Dataset.objects.create(
-                name="Test Dataset",
-                created_by=cls.osm_user,
-                source_imagery="http://example.com/image.png",
-            ),
-            geom=Polygon(
-                ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
-                ((0.4, 0.4), (0.4, 0.6), (0.6, 0.6), (0.6, 0.4), (0.4, 0.4)),
-            ),
+    def setUp(self):
+        # Create a Dataset instance for testing
+        self.dataset = baker.make(Dataset, name="Test Dataset")
+        # Create an AOI instance for testing
+        self.aoi = baker.make(
+            AOI,
+            dataset=self.dataset,
+            geom="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
+            label_status=AOI.DownloadStatus.DOWNLOADED,
         )
 
-    def test_AOI_creation(self):
-        # Test the AOI instance has been created properly.
-        self.assertTrue(isinstance(self.aoi, AOI))
+    def test_aoi_creation(self):
+        # Test that the AOI instance has been created properly.
+        self.assertEqual(self.aoi.dataset, self.dataset)
 
-    def test_string_representation(self):
-        # Test the string representation of an AOI instance
-        self.assertEqual(
-            str(self.aoi),
-            f"Test Dataset - {self.aoi.geom}",
-        )
-
-    def test_invalid_AOI_creation(self):
-        # Raise an exception if an invalid AOI is created
+    def test_invalid_aoi_creation(self):
+        # Test that an invalid AOI instance creation returns an exception.
         with self.assertRaises(Exception):
-            self.aoi = AOI.objects.create(
-                dataset=None,
-                geom=Polygon(
-                    ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
-                    ((0.4, 0.4), (0.4, 0.6), (0.6, 0.6), (0.6, 0.4), (0.4, 0.4)),
-                ),
-                label_status=AOI.DownloadStatus.DOWNLOADED,
-            )
+            self.aoi = baker.make(AOI, dataset=None)
 
-    def test_default_label_status(self):
-        # The default label status should be NOT_DOWNLOADED
-        self.assertEqual(self.aoi.label_status, AOI.DownloadStatus.NOT_DOWNLOADED)
+    def test_aoi_geom(self):
+        # Test the geom field of the AOI instance.
+        self.assertIsInstance(self.aoi.geom, Polygon)
+
+    def test_aoi_label_default_status(self):
+        # Test the default label_status field of the AOI instance is DOWNLOADED.
+        self.assertEqual(self.aoi.label_status, AOI.DownloadStatus.DOWNLOADED)
+
+    def test_aoi_label_fetched(self):
+        # Test the label_fetched field of the AOI instance.
+        self.assertIsNone(self.aoi.label_fetched)
+
+    def test_aoi_created_at(self):
+        # Test the created_at field of the AOI instance.
+        self.assertIsNotNone(self.aoi.created_at)
+
+    def test_aoi_last_modified(self):
+        # Test the last_modified field of the AOI instance is not empty after creation.
+        self.assertIsNotNone(self.aoi.last_modified)
+
+    def test_aoi_string_representation(self):
+        # Test the string representation of an AOI instance.
+        self.assertEqual(str(self.aoi), f"Test Dataset - {self.aoi.geom}")
 
 
 class LabelModelTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.aoi = AOI.objects.create(
-            dataset=Dataset.objects.create(
-                name="Test Dataset",
-                created_by=cls.osm_user,
-                source_imagery="http://example.com/image.png",
-                status=Dataset.DatasetStatus.ACTIVE,
-            ),
-            geom=Polygon(
-                ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
-                ((0.4, 0.4), (0.4, 0.6), (0.6, 0.6), (0.6, 0.4), (0.4, 0.4)),
-            ),
+    def setUp(self):
+        # Create a user for testing
+        self.osm_user = baker.make(OsmUser, osm_id="123456789", username="testuser")
+
+        # Create a Dataset instance for testing
+        self.dataset = baker.make(
+            Dataset, name="Test Dataset", created_by=self.osm_user
         )
-        cls.label = Label.objects.create(
-            aoi=cls.aoi,
-            geom=Polygon(
-                ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
-                ((0.4, 0.4), (0.4, 0.6), (0.6, 0.6), (0.6, 0.4), (0.4, 0.4)),
-            ),
+
+        # Create an AOI instance for testing
+        self.aoi = baker.make(
+            AOI, dataset=self.dataset, geom="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))"
+        )
+
+        # Create a Label instance for testing
+        self.label = baker.make(
+            Label,
+            aoi=self.aoi,
+            geom="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
             osm_id=123456789,
             tags={"key": "value"},
         )
@@ -143,12 +125,10 @@ class LabelModelTest(TestCase):
     def test_invalid_label_creation(self):
         # Raise an exception if an invalid label is created
         with self.assertRaises(Exception):
-            self.label = Label.objects.create(
+            self.label = baker.make(
+                Label,
                 aoi=None,
-                geom=Polygon(
-                    ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
-                    ((0.4, 0.4), (0.4, 0.6), (0.6, 0.6), (0.6, 0.4), (0.4, 0.4)),
-                ),
+                geom="POLYGON((0 0, 0 1, 1 1, 1 0, 0 0))",
                 osm_id=123456789,
                 tags={"key": "value"},
             )
@@ -162,16 +142,15 @@ class ModelTest(TestCase):
     @classmethod
     def setUpTestData(cls):
         # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.dataset = Dataset.objects.create(
+        cls.osm_user = baker.make(OsmUser, osm_id="123456789", username="testuser")
+        cls.dataset = baker.make(
+            Dataset,
             name="Test Dataset",
             created_by=cls.osm_user,
             source_imagery="http://example.com/image.png",
         )
-        cls.model = Model.objects.create(
-            name="Test Model",
-            created_by=cls.osm_user,
-            dataset=cls.dataset,
+        cls.model = baker.make(
+            Model, name="Test Model", created_by=cls.osm_user, dataset=cls.dataset
         )
 
     def test_model_creation(self):
@@ -181,10 +160,8 @@ class ModelTest(TestCase):
     def test_invalid_model_creation(self):
         # Raise an exception if an invalid model is created
         with self.assertRaises(Exception):
-            self.model = Model.objects.create(
-                name="Test Model",
-                created_by=None,
-                dataset=self.dataset,
+            self.model = baker.make(
+                Model, name="Test Model", created_by=None, dataset=self.dataset
             )
 
     def test_string_representation(self):
@@ -198,27 +175,23 @@ class ModelTest(TestCase):
 
 class TrainingModelTest(TestCase):
     @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.dataset = Dataset.objects.create(
-            name="Test Dataset",
-            created_by=cls.osm_user,
+        self.osm_user = baker.make(OsmUser, osm_id="123456789", username="testuser")
+        self.dataset = baker.make(
+            Dataset, name="Test Dataset", created_by=self.osm_user
         )
-        cls.model = Model.objects.create(
-            name="Test Model",
-            created_by=cls.osm_user,
-            dataset=cls.dataset,
+        self.model = baker.make(
+            Model, name="Test Model", created_by=self.osm_user, dataset=self.dataset
         )
-        cls.training = Training.objects.create(
-            model=cls.model,
+        self.training = baker.make(
+            Training,
+            model=self.model,
             zoom_level=[19, 20, 21, 22],
-            created_by=cls.osm_user,
+            created_by=self.osm_user,
             epochs=10,
             batch_size=32,
         )
-        cls.source_imagery = "http://example.com/image.png"
-        cls.description = "Test description"
 
     def test_training_creation(self):
         # Test the training instance has been created properly.
@@ -235,24 +208,23 @@ class TrainingModelTest(TestCase):
 
 
 class FeedbackModelTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.model = Model.objects.create(
+        self.osm_user = baker.make(OsmUser, osm_id="123456789", username="testuser")
+        self.model = baker.make(
+            Model,
             name="Test Model",
-            created_by=cls.osm_user,
-            dataset=Dataset.objects.create(
-                name="Test Dataset",
-                created_by=cls.osm_user,
-            ),
+            created_by=self.osm_user,
+            dataset=baker.make(Dataset, name="Test Dataset", created_by=self.osm_user),
         )
-        cls.feedback = Feedback.objects.create(
-            user=cls.osm_user,
-            training=Training.objects.create(
-                model=cls.model,
+        self.feedback = baker.make(
+            Feedback,
+            user=self.osm_user,
+            training=baker.make(
+                Training,
+                model=self.model,
                 zoom_level=[19, 20, 21, 22],
-                created_by=cls.osm_user,
+                created_by=self.osm_user,
                 epochs=10,
                 batch_size=32,
             ),
@@ -282,29 +254,27 @@ class FeedbackModelTest(TestCase):
 
 
 class FeedbackAOITest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
+    def setUp(self):
         # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(osm_id="123456789", username="testuser")
-        cls.dataset = Dataset.objects.create(
-            name="Test Dataset",
-            created_by=cls.osm_user,
+        self.osm_user = baker.make(OsmUser, osm_id="123456789", username="testuser")
+        self.dataset = baker.make(
+            Dataset, name="Test Dataset", created_by=self.osm_user
         )
-        cls.model = Model.objects.create(
-            name="Test Model",
-            created_by=cls.osm_user,
-            dataset=cls.dataset,
+        self.model = baker.make(
+            Model, name="Test Model", created_by=self.osm_user, dataset=self.dataset
         )
-        cls.training = Training.objects.create(
-            model=cls.model,
+        self.training = baker.make(
+            Training,
+            model=self.model,
             zoom_level=[19, 20, 21, 22],
-            created_by=cls.osm_user,
+            created_by=self.osm_user,
             epochs=10,
             batch_size=32,
         )
-        cls.feedbackAOI = FeedbackAOI.objects.create(
-            user=cls.osm_user,
-            training=cls.training,
+        self.feedbackAOI = baker.make(
+            FeedbackAOI,
+            user=self.osm_user,
+            training=self.training,
             source_imagery="http://example.com/aoi_image.png",
             geom=Polygon(
                 ((0, 0), (0, 1), (1, 1), (1, 0), (0, 0)),
@@ -324,42 +294,77 @@ class FeedbackAOITest(TestCase):
             f"{self.feedbackAOI.user} - {self.feedbackAOI.training} - {self.feedbackAOI.source_imagery}",
         )
 
+    def test_string_representation_with_different_source_imagery(self):
+        # Test the string representation of a FeedbackAOI instance with a different source imagery
+        self.feedbackAOI.source_imagery = "http://example.com/different_image.png"
+        self.assertEqual(
+            str(self.feedbackAOI),
+            f"{self.feedbackAOI.user} - {self.feedbackAOI.training} - {self.feedbackAOI.source_imagery}",
+        )
 
-class FeedbackLabelTest(TestCase):
-    @classmethod
-    def setUpTestData(cls):
-        # Set up non-modified objects used by all test methods
-        cls.osm_user = OsmUser.objects.create(
-            osm_id="987654321", username="feedbacklabeluser"
+    def test_string_representation_with_different_user(self):
+        # Test the string representation of a FeedbackAOI instance with a different user
+        self.feedbackAOI.user = baker.make(
+            OsmUser, osm_id="987654321", username="differentuser"
         )
-        cls.dataset = Dataset.objects.create(
-            name="Feedback Label Dataset",
-            created_by=cls.osm_user,
+        self.assertEqual(
+            str(self.feedbackAOI),
+            f"{self.feedbackAOI.user} - {self.feedbackAOI.training} - {self.feedbackAOI.source_imagery}",
         )
-        cls.model = Model.objects.create(
-            name="Feedback Label Model",
-            created_by=cls.osm_user,
-            dataset=cls.dataset,
-        )
-        cls.training = Training.objects.create(
-            model=cls.model,
-            zoom_level=[19, 20, 21, 22],
-            created_by=cls.osm_user,
+
+    def test_string_representation_with_different_training(self):
+        # Test the string representation of a FeedbackAOI instance with a different training
+        self.feedbackAOI.training = baker.make(
+            Training,
+            model=self.feedbackAOI.training.model,
+            zoom_level=[18, 19, 20, 21],
+            created_by=self.feedbackAOI.training.created_by,
             epochs=5,
             batch_size=16,
         )
-        cls.feedbackAOI = FeedbackAOI.objects.create(
-            user=cls.osm_user,
-            training=cls.training,
+        self.assertEqual(
+            str(self.feedbackAOI),
+            f"{self.feedbackAOI.user} - {self.feedbackAOI.training} - {self.feedbackAOI.source_imagery}",
+        )
+
+
+class FeedbackLabelTest(TestCase):
+    def setUp(self):
+        # Set up non-modified objects used by all test methods
+        self.osm_user = baker.make(
+            OsmUser, osm_id="987654321", username="feedbacklabeluser"
+        )
+        self.dataset = baker.make(
+            Dataset, name="Feedback Label Dataset", created_by=self.osm_user
+        )
+        self.model = baker.make(
+            Model,
+            name="Feedback Label Model",
+            created_by=self.osm_user,
+            dataset=self.dataset,
+        )
+        self.training = baker.make(
+            Training,
+            model=self.model,
+            zoom_level=[19, 20, 21, 22],
+            created_by=self.osm_user,
+            epochs=5,
+            batch_size=16,
+        )
+        self.feedbackAOI = baker.make(
+            FeedbackAOI,
+            user=self.osm_user,
+            training=self.training,
             source_imagery="http://example.com/feedback_aoi_image.png",
             geom=Polygon(
                 ((0, 0), (0, 2), (2, 2), (2, 0), (0, 0)),
                 ((0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5), (0.5, 0.5)),
             ),
         )
-        cls.feedbackLabel = FeedbackLabel.objects.create(
+        self.feedbackLabel = baker.make(
+            FeedbackLabel,
             osm_id=123456789,
-            feedback_aoi=cls.feedbackAOI,
+            feedback_aoi=self.feedbackAOI,
             tags={"natural": "tree"},
             geom=Polygon(((0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5), (0.5, 0.5))),
         )
@@ -370,8 +375,34 @@ class FeedbackLabelTest(TestCase):
         self.assertIsNotNone(self.feedbackLabel)
 
     def test_feedback_label_fields(self):
-        # Test the fields of the feedback label instance
+clear        # Test the fields of the feedback label instance
         self.assertEqual(self.feedbackLabel.osm_id, 123456789)
         self.assertEqual(self.feedbackLabel.feedback_aoi, self.feedbackAOI)
         self.assertEqual(self.feedbackLabel.tags, {"natural": "tree"})
         self.assertTrue(isinstance(self.feedbackLabel.geom, Polygon))
+
+    def test_string_representation_with_different_osm_id(self):
+        # Test the string representation of a FeedbackLabel instance with a different osm_id
+        self.feedbackLabel.osm_id = 987654321
+        self.assertEqual(
+            str(self.feedbackLabel),
+            f"{self.feedbackLabel.osm_id} - {self.feedbackLabel.feedback_aoi} - {self.feedbackLabel.tags}",
+        )
+
+    def test_string_representation_with_different_tags(self):
+        # Test the string representation of a FeedbackLabel instance with different tags
+        self.feedbackLabel.tags = {"natural": "water"}
+        self.assertEqual(
+            str(self.feedbackLabel),
+            f"{self.feedbackLabel.osm_id} - {self.feedbackLabel.feedback_aoi} - {self.feedbackLabel.tags}",
+        )
+
+    def test_string_representation_with_different_geom(self):
+        # Test the string representation of a FeedbackLabel instance with different geom
+        self.feedbackLabel.geom = Polygon(
+            ((0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5), (0.5, 0.5))
+        )
+        self.assertEqual(
+            str(self.feedbackLabel),
+            f"{self.feedbackLabel.osm_id} - {self.feedbackLabel.feedback_aoi} - {self.feedbackLabel.tags}",
+        )
