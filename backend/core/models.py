@@ -39,6 +39,9 @@ class AOI(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     last_modified = models.DateTimeField(auto_now=True)
 
+    def __str__(self):
+        return self.dataset.name + " - " + str(self.geom)
+
 
 class Label(models.Model):
     aoi = models.ForeignKey(AOI, to_field="id", on_delete=models.CASCADE)
